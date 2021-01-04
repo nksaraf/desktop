@@ -1,40 +1,101 @@
 import React from "react";
-import * as colors from "twind/colors";
-import { setup } from "twind/shim";
+import "./theme";
 import { css } from "twind/css";
-import { getProjects } from "./index.api";
-import { useQuery } from "./apiless";
-import { QueryClient, QueryClientProvider } from "react-query";
+import { Project as ProjectType, getProjects, openInVsCode } from "./index.api";
+import { useMutation, useQuery } from "./apiless";
+import { WithClient } from "./client";
+import * as si from "react-icons/si";
+import { DndContext } from "@dnd-kit/core";
+import type { PrismaClient } from "@prisma/client";
+import {
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 
-setup({
-  theme: {
-    extend: {
-      colors: colors,
-    },
-  },
-});
-
-function App() {
-  const { data } = useQuery(getProjects);
+export default function App() {
   return (
-    <div
-      className={`h-screen w-screen bg-blueGray-300 ${css({
-        "--tw-bg-opacity": 0.6,
-      })}`}
-    >
-      {data.map((project) => (
-        <div>{project}</div>
-      ))}
-    </div>
+    <WithClient>
+      <div
+        className={`h-screen p-3 w-screen bg-gray-900 text-white ${css({
+          // @ts-ignore
+          "--tw-bg-opacity": 0.2,
+        })}`}
+      >
+        <Projects />
+      </div>
+    </WithClient>
   );
 }
 
-const client = new QueryClient();
+const useDB = (fn: (db: PrismaClient) => void) => {};
 
-export default function WithClient() {
+//
+function Projects() {
+  const { data } = useQuery(getProjects);
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+  let items = (data ?? []).map((proj) => proj.name);
+
+  // function handleDragEnd(event) {
+  //   const { active, over } = event;
+
+  //   if (active.id !== over.id) {
+  //     setItems((items) => {
+  //       const oldIndex = items.indexOf(active.id);
+  //       const newIndex = items.indexOf(over.id);
+
+  //       return arrayMove(items, oldIndex, newIndex);
+  //     });
+  //   }
+  // }
+
   return (
-    <QueryClientProvider client={client}>
-      <App />
-    </QueryClientProvider>
+    <DndContext sensors={sensors}>
+      <SortableContext items={items} strategy={verticalListSortingStrategy}>
+        <div className="flex flex-col">
+          {items.map((id, index) => (
+            <Project key={id} id={id} project={data[index]} />
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+function Project({ project, id }) {
+  const mutation = useMutation(openInVsCode);
+
+  return (
+    <div className="flex cursor-pointer flex-row gap-1 hover:bg-gray-900 rounded-lg py-1 transition-all group">
+      <div className="pt-1 pl-1">
+        <button
+          className="px-3 py-3 transition-all hover:bg-black rounded-full "
+          onClick={() => {
+            mutation.mutate(project.dir);
+          }}
+        >
+          <si.SiVisualstudiocode className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="flex flex-col">
+        <pre className="text-lg bold">{project.name}</pre>
+        <pre className="text-sm text-gray-400 weight-bold">
+          @{project.pkg.version}
+        </pre>
+      </div>
+    </div>
   );
 }

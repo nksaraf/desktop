@@ -1,20 +1,22 @@
 // Native
 const { format } = require("url");
-const { join } = require("path");
 
 // Packages
-const { BrowserWindow, app } = require("electron");
-const isDev = require("electron-is-dev");
-const prepareNext = require("electron-next");
+const { join, isAbsolute, normalize } = require("path");
 const { resolve } = require("app-root-path");
+
+const { BrowserWindow, app } = require("electron");
+const prepareNext = require("./prepareNext");
 
 // Prepare the renderer once the app is ready
 app.on("ready", async () => {
   await prepareNext("./", 8000);
 
   const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 600,
+    width: 360,
+    height: 720,
+    x: 12,
+    y: 32,
     frame: false,
     transparent: true,
     acceptFirstMouse: true,
@@ -33,9 +35,9 @@ app.on("ready", async () => {
     slashes: true,
   });
 
-  const url = isDev ? devPath : prodPath;
+  const url = devPath;
   mainWindow.loadURL(url);
-  mainWindow.openDevTools({ mode: "undocked" });
+  process.env.DEBUG && mainWindow.openDevTools({ mode: "undocked" });
 });
 
 // Quit the app once all windows are closed
